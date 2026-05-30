@@ -11,8 +11,15 @@ Through anaconda, install our environment:
 
 ```bash
 conda env create -f env.yaml
+```
+
+## macOS / CPU only
+```bash
+conda env create -f env.macos.yaml
 conda activate dime
-``` 
+```
+
+On Apple Silicon, the code will use MPS automatically when available. FP16 is only used on CUDA.
 
 ## Data preparation
 
@@ -35,16 +42,16 @@ To use our trained models, you must download them first from this [link](https:/
 To create the counterfactual explanations, please use the main.py script as follows:
 
 ```bash
-MODEL_FLAGS="--attention_resolutions 32,16,8 --class_cond False --diffusion_steps 500 --learn_sigma True --noise_schedule linear --num_channels 128 --num_heads 4 --num_res_blocks 2 --resblock_updown True --use_fp16 True --use_scale_shift_norm True"
+MODEL_FLAGS="--image_size 128 --attention_resolutions 32,16,8 --class_cond False --diffusion_steps 500 --learn_sigma True --noise_schedule linear --num_channels 128 --num_head_channels 64 --num_res_blocks 2 --resblock_updown True --use_fp16 True --use_scale_shift_norm True"
 SAMPLE_FLAGS="--batch_size 50 --timestep_respacing 200"
-DATAPATH=/path/to/dataset
-MODELPATH=/path/to/model.pt
-CLASSIFIERPATH=/path/to/classifier.pt
-ORACLEPATH=/path/to/oracle.pt
-OUTPUT_PATH=/path/to/output
-EXPNAME=exp/name
+DATAPATH=/img_align_celeba
+MODELPATH=models/ddpm-celeba.pt
+CLASSIFIERPATH=models/classifier.pth
+ORACLEPATH=models/oracle.pt
+OUTPUT_PATH=output
+EXPNAME=exp1
 
-# parameters of the sampling
+NUMBATCHES=50
 GPU=0
 S=60
 SEED=4
@@ -55,7 +62,7 @@ PERC=30
 L1=0.05
 QUERYLABEL=31
 TARGETLABEL=-1
-IMAGESIZE=128  # dataset shape
+IMAGESIZE=128  
 
 python -W ignore main.py $MODEL_FLAGS $SAMPLE_FLAGS \
   --query_label $QUERYLABEL --target_label $TARGETLABEL \
@@ -71,6 +78,34 @@ python -W ignore main.py $MODEL_FLAGS $SAMPLE_FLAGS \
   --use_sampling_on_x_t True \
   --save_images True --image_size $IMAGESIZE
 ```
+
+In zsh, use `${=MODEL_FLAGS}` and `${=SAMPLE_FLAGS}` so the variables are split into separate CLI arguments:
+
+```bash
+python -W ignore main.py ${=MODEL_FLAGS} ${=SAMPLE_FLAGS} \
+  --query_label $QUERYLABEL --target_label $TARGETLABEL \
+  --output_path $OUTPUT_PATH --num_batches $NUMBATCHES \
+  --start_step $S --dataset 'CelebAMV' \
+  --exp_name $EXPNAME --gpu $GPU \
+  --model_path $MODELPATH --classifier_scales $CLASS_SCALES \
+  --classifier_path $CLASSIFIERPATH --seed $SEED \
+  --oracle_path $ORACLEPATH \
+  --l1_loss $L1 --use_logits $USE_LOGITS \
+  --l_perc $PERC --l_perc_layer $LAYER \
+  --save_x_t True --save_z_t True \
+  --use_sampling_on_x_t True \
+  --save_images True --image_size $IMAGESIZE
+```
+
+For a quicker run, add `--fast_mode True`. It reduces the sampling chain, uses one classifier scale, and disables the extra guidance paths by default.
+
+For the fastest single-image smoke test, run:
+
+```bash
+bash quick_test.sh
+```
+
+This script is configured to process only one image (`--batch_size 1 --num_batches 1`) with fast settings and saves outputs to `output/Results/quick-test` by default.
 
 Given that the sampling process may take much time, we've included a way to split the sampling into multiple processes. To use this feature, include the flag `--num_chunks C`, where `C` is the number of chunks to split the dataset. Then, run `C` times the code using the flag `--chunk c`, where `c` is the chunk to generate the evaluation (hence, `c \in {0, 1, ..., C - 1}`).
 

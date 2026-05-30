@@ -39,7 +39,7 @@ def load_from_DDP_model(state_dict):
 
 @torch.enable_grad()
 def clean_class_cond_fn(x_t, y, classifier,
-                        s, use_logits):
+                        s, use_logits, mask=None):
     '''
     Computes the classifier gradients for the guidance
 
@@ -48,8 +48,9 @@ def clean_class_cond_fn(x_t, y, classifier,
     :param classifier: classification model
     :param s: scaling classifier gradients parameter
     :param use_logits: compute the loss over the logits
+    :param mask: optional (B, 1, H, W) Grad-CAM spatial mask in [0, 1]
     '''
-    
+
     x_in = x_t.detach().requires_grad_(True)
     logits = classifier(x_in)
 
@@ -65,6 +66,11 @@ def clean_class_cond_fn(x_t, y, classifier,
 
     selected = selected * s
     grads = torch.autograd.grad(selected.sum(), x_in)[0]
+
+    if mask is not None:
+        # floor at 0.2 so gradients outside the region are suppressed but not zeroed
+        soft_mask = 0.2 + 0.8 * mask.to(grads.device)
+        grads = grads * soft_mask
 
     return grads
 

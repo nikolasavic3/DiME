@@ -27,6 +27,7 @@ from core.script_util import (
     args_to_dict,
     add_dict_to_argparser,
 )
+from core.gradcam import compute_gradcam_mask
 from core.sample_utils import (
     get_DiME_iterative_sampling,
     clean_class_cond_fn,
@@ -86,6 +87,7 @@ def create_args():
         use_sampling_on_x_t=True,
         sampling_scale=1.,  # use this flag to rescale the variance of the noise
         guided_iterations=9999999,  # set a high number to do all iteration in a guided way
+        use_gradcam=False,
 
         # evaluation args
         merge_and_eval=False,  # when all chunks have finished, run it with this flag
@@ -358,6 +360,12 @@ def main():
 
         transformed = torch.zeros_like(lab).bool()
 
+        if args.use_gradcam:
+            with torch.enable_grad():
+                gradcam_mask = compute_gradcam_mask(classifier, img, target)
+        else:
+            gradcam_mask = None
+
         for jdx, classifier_scale in enumerate(classifier_scales):
 
             # choose the target label
@@ -380,7 +388,8 @@ def main():
                 class_grad_kwargs={'y': target[~transformed],
                                    'classifier': classifier,
                                    's': classifier_scale,
-                                   'use_logits': args.use_logits},
+                                   'use_logits': args.use_logits,
+                                   'mask': gradcam_mask[~transformed] if gradcam_mask is not None else None},
                 dist_grad_fn=dist_cond_fn,
                 dist_grad_kargs={'l1_loss': args.l1_loss,
                                  'l2_loss': args.l2_loss,
