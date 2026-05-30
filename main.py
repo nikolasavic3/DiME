@@ -265,7 +265,7 @@ def main():
 
     loader = data.DataLoader(dataset, batch_size=args.batch_size,
                              shuffle=False,
-                             num_workers=4, pin_memory=True)
+                             num_workers=0, pin_memory=True) #set to 0
 
     # ========================================
     # load models
