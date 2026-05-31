@@ -2,18 +2,25 @@ import torch
 import torch.nn.functional as F
 
 
-def compute_gradcam_mask(classifier, x0, target_y):
-    """
-    Compute Grad-CAM mask from the DenseNet classifier's last dense block.
-    Uses the same binary CE loss as clean_class_cond_fn so gradients are consistent.
+def _resolve_layer(classifier, layer_name):
+    features = classifier.feat_extract.feat_extract.features
+    if not hasattr(features, layer_name):
+        raise ValueError(f"DenseNet has no layer '{layer_name}'")
+    return getattr(features, layer_name)
 
-    classifier: ClassificationModel instance
-    x0: image tensor (B, C, H, W) in [-1, 1]
-    target_y: target label tensor (B,)
+
+def compute_gradcam_mask(classifier, x0, target_y,
+                         layer_name="denseblock3", sharpen=2.0):
+    """
+    Grad-CAM mask from a chosen DenseNet feature block.
+    Same binary CE loss as clean_class_cond_fn so gradients are consistent.
+
+    layer_name: 'denseblock2' (16x16), 'denseblock3' (8x8), 'denseblock4' (4x4)
+    sharpen: exponent applied after normalization to concentrate mass (1.0 = off)
     Returns: (B, 1, H, W) mask in [0, 1]
     """
     feats, grads = {}, {}
-    layer = classifier.feat_extract.feat_extract.features.denseblock4
+    layer = _resolve_layer(classifier, layer_name)
 
     fh = layer.register_forward_hook(lambda m, i, o: feats.update({"v": o}))
     bh = layer.register_full_backward_hook(lambda m, gi, go: grads.update({"v": go[0]}))
@@ -40,6 +47,8 @@ def compute_gradcam_mask(classifier, x0, target_y):
         c = cam[i:i+1]
         if c.max() > 0:
             c = c / c.max()
+        if sharpen != 1.0:
+            c = c ** sharpen
         c = F.interpolate(c, size=x0.shape[2:], mode="bilinear", align_corners=False)
         masks.append(c)
 

@@ -68,8 +68,8 @@ def clean_class_cond_fn(x_t, y, classifier,
     grads = torch.autograd.grad(selected.sum(), x_in)[0]
 
     if mask is not None:
-        # floor at 0.2 so gradients outside the region are suppressed but not zeroed
-        soft_mask = mask.to(grads.device)
+        # low floor so off-region gradients are suppressed but not fully zeroed
+        soft_mask = 0.1 + 0.9 * mask.to(grads.device)
         grads = grads * soft_mask
 
     return grads

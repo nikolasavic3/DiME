@@ -88,6 +88,8 @@ def create_args():
         sampling_scale=1.,  # use this flag to rescale the variance of the noise
         guided_iterations=9999999,  # set a high number to do all iteration in a guided way
         use_gradcam=False,
+        gradcam_layer="denseblock3",
+        gradcam_sharpen=2.0,
 
         # evaluation args
         merge_and_eval=False,  # when all chunks have finished, run it with this flag
@@ -362,7 +364,11 @@ def main():
 
         if args.use_gradcam:
             with torch.enable_grad():
-                gradcam_mask = compute_gradcam_mask(classifier, img, target)
+                gradcam_mask = compute_gradcam_mask(
+                    classifier, img, target,
+                    layer_name=args.gradcam_layer,
+                    sharpen=args.gradcam_sharpen,
+                )
         else:
             gradcam_mask = None
         if args.use_gradcam and gradcam_mask is not None:
