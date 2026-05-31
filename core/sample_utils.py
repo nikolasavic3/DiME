@@ -69,7 +69,7 @@ def clean_class_cond_fn(x_t, y, classifier,
 
     if mask is not None:
         # floor at 0.2 so gradients outside the region are suppressed but not zeroed
-        soft_mask = 0.2 + 0.8 * mask.to(grads.device)
+        soft_mask = mask.to(grads.device)
         grads = grads * soft_mask
 
     return grads

@@ -365,6 +365,9 @@ def main():
                 gradcam_mask = compute_gradcam_mask(classifier, img, target)
         else:
             gradcam_mask = None
+        if args.use_gradcam and gradcam_mask is not None:
+            import torchvision.utils as vutils
+            vutils.save_image(gradcam_mask, f'output/mask_batch{idx}.png')
 
         for jdx, classifier_scale in enumerate(classifier_scales):
 
